@@ -3,6 +3,7 @@ import pygame
 from core.board import Board
 from gui import constants as C
 from gui.input_handler import InputHandler
+from gui.renderer import Renderer
 
 class App:
   def __init__(self) -> None:
@@ -14,6 +15,7 @@ class App:
 
     self.board = Board()
     self.input = InputHandler(self.board)
+    self.renderer = Renderer(self.screen)
 
   def run(self) -> None:
     self.running = True
@@ -21,7 +23,7 @@ class App:
       while self.running:
         self._handle_events()
         self._update()
-        self.screen.fill((40, 40, 40))
+        self.renderer.draw(self.clock.get_fps())
         pygame.display.flip()
         self.clock.tick(C.FPS)
     finally:
