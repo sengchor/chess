@@ -1,3 +1,5 @@
+from pathlib import Path
+
 # Layout
 SQUARE_SIZE = 80
 BOARD_SIZE = SQUARE_SIZE * 8
@@ -21,3 +23,10 @@ PANEL_TEXT = (220, 220, 220)
 # Fonts
 LABEL_FONT_SIZE = 16
 PANEL_FONT_SIZE = 22
+
+# Paths
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PIECES_DIR  = PROJECT_ROOT / "assets" / "pieces"
+
+# Pieces
+PIECE_PADDING = 2
