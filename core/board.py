@@ -57,3 +57,15 @@ class Board:
         row += str(empty)
       rows.append(row)
     return "/".join(rows)
+
+  def apply_move(self, from_sq: int, to_sq: int) -> bool:
+    """The single entry point for moves."""
+    piece = self.squares[from_sq]
+    if piece is None or from_sq == to_sq:
+      return False
+
+    self.history.append((self.squares.copy(), self.last_move))
+    self.squares[to_sq] = piece
+    self.squares[from_sq] = None
+    self.last_move = (from_sq, to_sq)
+    return True

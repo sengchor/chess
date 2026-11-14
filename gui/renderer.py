@@ -2,6 +2,7 @@ import pygame
 
 from core.board import Board
 from gui import constants as C
+from gui.coords import square_to_rect
 
 PIECE_FILES = {
   "P": "PawnW",   "p": "PawnB",
@@ -21,21 +22,15 @@ class Renderer:
       C.BOARD_ORIGIN[0] + C.BOARD_SIZE, 0, C.PANEL_WIDTH, C.WINDOW_HEIGHT
     )
     self.piece_images = self._load_piece_images()
+    self.light_square_overlay = self._overlay(C.HIGHLIGHT_LIGHT)
+    self.dark_square_overlay = self._overlay(C.HIGHLIGHT_DARK)
 
-  def draw(self, board: Board, fps: float) -> None:
+  def draw(self, board: Board, selected: int | None, fps: float) -> None:
     self.screen.fill(C.BACKGROUND)
     self._draw_squares()
+    self._draw_highlights(board, selected)
     self._draw_pieces(board)
     self._draw_panel(fps)
-
-  # Coordinates
-  def square_to_rect(self, sq: int) -> pygame.Rect:
-    file, rank = sq % 8, sq // 8
-    col = file
-    row = 7 - rank
-    x = C.BOARD_ORIGIN[0] + col * C.SQUARE_SIZE
-    y = C.BOARD_ORIGIN[1] + row * C.SQUARE_SIZE
-    return pygame.Rect(x, y, C.SQUARE_SIZE, C.SQUARE_SIZE)
 
   @staticmethod
   def is_light(sq:int) -> bool:
@@ -61,18 +56,35 @@ class Renderer:
       raise FileNotFoundError(f"Missing piece images in {C.PIECES_DIR}: {', '.join(missing)}")
     return images
 
+  @staticmethod
+  def _overlay(rgba: tuple[int, int, int, int]) -> pygame.Surface:
+    surf = pygame.Surface((C.SQUARE_SIZE, C.SQUARE_SIZE), pygame.SRCALPHA)
+    surf.fill(rgba)
+    return surf
+
   # Board
   def _draw_squares(self) -> None:
     for sq in range(64):
       color = C.LIGHT_SQUARE if self.is_light(sq) else C.DARK_SQUARE
-      pygame.draw.rect(self.screen, color, self.square_to_rect(sq))
+      pygame.draw.rect(self.screen, color, square_to_rect(sq))
+
+  def _draw_highlights(self, board: Board, selected: int | None) -> None:
+    squares = set(board.last_move or ())
+    if selected is not None:
+      squares.add(selected)
+    for sq in squares:
+      self._highlight_square(sq)
+
+  def _highlight_square(self, sq: int) -> None:
+    overlay = self.light_square_overlay if self.is_light(sq) else self.dark_square_overlay
+    self.screen.blit(overlay, square_to_rect(sq))
 
   def _draw_pieces(self, board: Board) -> None:
     for sq, piece in enumerate(board.squares):
       if piece is None:
         continue
       img = self.piece_images[piece]
-      self.screen.blit(img, img.get_rect(center=self.square_to_rect(sq).center))
+      self.screen.blit(img, img.get_rect(center=square_to_rect(sq).center))
 
   # Panel
   def _draw_panel(self, fps: float) -> None:
