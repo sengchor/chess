@@ -2,7 +2,8 @@ import pygame
 
 from core.board import Board
 from gui import constants as C
-from gui.coords import square_to_rect
+from gui.coords import pixel_to_square, square_to_rect
+from gui.input_handler import InputHandler
 
 PIECE_FILES = {
   "P": "PawnW",   "p": "PawnB",
@@ -24,13 +25,15 @@ class Renderer:
     self.piece_images = self._load_piece_images()
     self.light_square_overlay = self._overlay(C.HIGHLIGHT_LIGHT)
     self.dark_square_overlay = self._overlay(C.HIGHLIGHT_DARK)
+    self.drop_target_overlay = self._overlay(C.HIGHLIGHT_DROP_TARGET, C.DROP_TARGET_WIDTH)
 
-  def draw(self, board: Board, selected: int | None, fps: float) -> None:
+  def draw(self, board: Board, ui: InputHandler, fps: float) -> None:
     self.screen.fill(C.BACKGROUND)
     self._draw_squares()
-    self._draw_highlights(board, selected)
-    self._draw_pieces(board)
+    self._draw_highlights(board, ui)
+    self._draw_pieces(board, skip=ui.drag_square)
     self._draw_panel(fps)
+    self._draw_dragged_piece(board, ui)
 
   @staticmethod
   def is_light(sq:int) -> bool:
@@ -57,9 +60,10 @@ class Renderer:
     return images
 
   @staticmethod
-  def _overlay(rgba: tuple[int, int, int, int]) -> pygame.Surface:
+  def _overlay(rgba: tuple[int, int, int, int], border: int = 0) -> pygame.Surface:
+    """Square-sized translucent surface: filled, or only an outline if border > 0."""
     surf = pygame.Surface((C.SQUARE_SIZE, C.SQUARE_SIZE), pygame.SRCALPHA)
-    surf.fill(rgba)
+    pygame.draw.rect(surf, rgba, surf.get_rect(), border)
     return surf
 
   # Board
@@ -68,23 +72,37 @@ class Renderer:
       color = C.LIGHT_SQUARE if self.is_light(sq) else C.DARK_SQUARE
       pygame.draw.rect(self.screen, color, square_to_rect(sq))
 
-  def _draw_highlights(self, board: Board, selected: int | None) -> None:
+  def _draw_highlights(self, board: Board, ui: InputHandler) -> None:
     squares = set(board.last_move or ())
-    if selected is not None:
-      squares.add(selected)
+    if ui.selected is not None:
+      squares.add(ui.selected)
     for sq in squares:
       self._highlight_square(sq)
+
+    if ui.drag_square is not None:
+      hover = pixel_to_square(ui.drag_pos)
+      if hover is not None and hover != ui.drag_square:
+        self.screen.blit(self.drop_target_overlay, square_to_rect(hover))
 
   def _highlight_square(self, sq: int) -> None:
     overlay = self.light_square_overlay if self.is_light(sq) else self.dark_square_overlay
     self.screen.blit(overlay, square_to_rect(sq))
 
-  def _draw_pieces(self, board: Board) -> None:
+  def _draw_pieces(self, board: Board, skip: int | None = None) -> None:
     for sq, piece in enumerate(board.squares):
-      if piece is None:
+      if piece is None or sq == skip:
         continue
       img = self.piece_images[piece]
       self.screen.blit(img, img.get_rect(center=square_to_rect(sq).center))
+
+  def _draw_dragged_piece(self, board: Board, ui: InputHandler) -> None:
+    if ui.drag_square is None:
+      return
+    piece = board.squares[ui.drag_square]
+    if piece is None:
+      return
+    img = self.piece_images[piece]
+    self.screen.blit(img, img.get_rect(center=ui.drag_center()))
 
   # Panel
   def _draw_panel(self, fps: float) -> None:

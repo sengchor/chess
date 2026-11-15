@@ -23,7 +23,7 @@ class App:
       while self.running:
         self._handle_events()
         self._update()
-        self.renderer.draw(self.board, self.input.selected, self.clock.get_fps())
+        self.renderer.draw(self.board, self.input, self.clock.get_fps())
         pygame.display.flip()
         self.clock.tick(C.FPS)
     finally:
