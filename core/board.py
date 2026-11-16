@@ -59,6 +59,10 @@ class Board:
       rows.append(row)
     return "/".join(rows)
 
+  def legal_moves_from(self, sq: int) -> list[Move]:
+    """Legal moves of the piece on `sq`"""
+    return [m for m in movegen.legal_moves(self) if m.from_sq == sq]
+
   def apply_move(self, from_sq: int, to_sq: int) -> bool:
     """The single entry point for moves."""
     move = Move(from_sq, to_sq)

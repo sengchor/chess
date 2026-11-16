@@ -36,3 +36,8 @@ PIECES_DIR  = PROJECT_ROOT / "assets" / "pieces"
 
 # Pieces
 PIECE_PADDING = 2
+
+# Legal-move hints
+HINT_COLOR = (20, 20, 20, 55)
+HINT_DOT_RADIUS = SQUARE_SIZE // 6
+HINT_RING_WIDTH = 6

@@ -27,17 +27,28 @@ class Renderer:
     self.dark_square_overlay = self._overlay(C.HIGHLIGHT_DARK)
     self.drop_target_overlay = self._overlay(C.HIGHLIGHT_DROP_TARGET, C.DROP_TARGET_WIDTH)
 
+    self.move_dot = self._circle(C.HINT_DOT_RADIUS)
+    self.capture_ring = self._circle(C.SQUARE_SIZE // 2, C.HINT_RING_WIDTH)
+
   def draw(self, board: Board, ui: InputHandler, fps: float) -> None:
     self.screen.fill(C.BACKGROUND)
     self._draw_squares()
     self._draw_highlights(board, ui)
     self._draw_pieces(board, skip=ui.drag_square)
+    self._draw_move_hints(board, ui)
     self._draw_panel(fps)
     self._draw_dragged_piece(board, ui)
 
   @staticmethod
   def is_light(sq:int) -> bool:
     return (sq % 8 + sq // 8) % 2 == 1
+
+  @staticmethod
+  def _circle(radius: int, width: int = 0) -> pygame.Surface:
+    """Square-sized surface with a centered translucent circle: filled, or a ring if width > 0."""
+    surf = pygame.Surface((C.SQUARE_SIZE, C.SQUARE_SIZE), pygame.SRCALPHA)
+    pygame.draw.circle(surf, C.HINT_COLOR, surf.get_rect().center, radius, width)
+    return surf
 
   # Asset
   def _load_piece_images(self) -> dict[str, pygame.Surface]:
@@ -113,3 +124,15 @@ class Renderer:
       surf = self.panel_font.render(line, True, C.PANEL_TEXT)
       self.screen.blit(surf, (x, y))
       y += surf.get_height() + 8
+
+  def _draw_move_hints(self, board: Board, ui: InputHandler) -> None:
+    """Dot on each empty legal target of the selected piece, ring on each legal capture."""
+    if ui.selected is None:
+      return
+    piece = board.squares[ui.selected]
+
+    if piece is None or piece.upper() != "P":
+      return
+    for move in board.legal_moves_from(ui.selected):
+      hint = self.capture_ring if board.squares[move.to_sq] is not None else self.move_dot
+      self.screen.blit(hint, square_to_rect(move.to_sq))
