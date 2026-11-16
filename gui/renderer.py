@@ -131,7 +131,7 @@ class Renderer:
       return
     piece = board.squares[ui.selected]
 
-    if piece is None or piece.upper() != "P":
+    if piece is None:
       return
     for move in board.legal_moves_from(ui.selected):
       hint = self.capture_ring if board.squares[move.to_sq] is not None else self.move_dot
