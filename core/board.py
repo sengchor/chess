@@ -1,5 +1,5 @@
-Piece = str | None
-Move = tuple[int, int] # (from_square, to_square)
+from core import movegen
+from core.movegen import Move, Piece
 
 START_PLACEMENT = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
 PIECE_LETTERS = set("PNBRQKpnbrqk")
@@ -7,7 +7,8 @@ PIECE_LETTERS = set("PNBRQKpnbrqk")
 class Board:
   def __init__(self) -> None:
     self.squares: list[Piece] = [None] * 64
-    self.history: list[tuple[list[Piece], Move | None]] = []
+    self.turn = "w"
+    self.history: list[tuple] = []
     self.last_move: Move | None = None
     self.load_placement(START_PLACEMENT)
 
@@ -60,12 +61,13 @@ class Board:
 
   def apply_move(self, from_sq: int, to_sq: int) -> bool:
     """The single entry point for moves."""
-    piece = self.squares[from_sq]
-    if piece is None or from_sq == to_sq:
+    move = Move(from_sq, to_sq)
+    if move not in movegen.legal_moves(self):
       return False
 
-    self.history.append((self.squares.copy(), self.last_move))
-    self.squares[to_sq] = piece
+    self.history.append((self.squares.copy(), self.turn, self.last_move))
+    self.squares[to_sq] = self.squares[from_sq]
     self.squares[from_sq] = None
-    self.last_move = (from_sq, to_sq)
+    self.last_move = move
+    self.turn = "b" if self.turn == "w" else "w"
     return True
