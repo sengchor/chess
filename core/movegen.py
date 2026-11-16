@@ -19,6 +19,9 @@ def _offset(sq: int, df: int, dr: int) -> int | None:
 
 KNIGHT_STEPS = [(1, 2), (2, 1), (2, -1), (1, -2), (-1, -2), (-2, -1), (-2, 1), (-1, 2)]
 KING_STEPS = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
+ROOK_DIRS = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+BISHOP_DIRS = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+QUEEN_DIRS = ROOK_DIRS + BISHOP_DIRS
 
 def _jump_table(steps: list[tuple[int, int]]) -> list[list[int]]:
   table = []
@@ -27,8 +30,29 @@ def _jump_table(steps: list[tuple[int, int]]) -> list[list[int]]:
     table.append([t for t in targets if t is not None])
   return table
 
+def _ray_table(dirs: list[tuple[int, int]]) -> list[list[list[int]]]:
+  """For each square, one ray (list of squares, nearest first) per direction."""
+  table = []
+  for sq in range(64):
+    rays = []
+    for df, dr in dirs:
+      rays.append(_ray(sq, df, dr))
+    table.append(rays)
+  return table
+
+def _ray(sq: int, df: int, dr: int) -> list[int]:
+  ray = []
+  t = _offset(sq, df, dr)
+  while t is not None:
+    ray.append(t)
+    t = _offset(t, df, dr)
+  return ray
+
 KNIGHT_TARGETS = _jump_table(KNIGHT_STEPS)
 KING_TARGETS = _jump_table(KING_STEPS)
+ROOK_RAYS = _ray_table(ROOK_DIRS)
+BISHOP_RAYS = _ray_table(BISHOP_DIRS)
+QUEEN_RAYS = _ray_table(QUEEN_DIRS)
 
 # Helpers
 def is_white(piece: str) -> bool:
@@ -73,12 +97,19 @@ def _jump_moves(squares: list[Piece], sq: int, targets: list[int]) -> list[Move]
       moves.append(Move(sq, t))
   return moves
 
-def free_moves(board: Board, sq: int) -> list[Move]:
-  """Placeholder for pieces without a rule yet."""
-  squares = board.squares
+def _slide_moves(squares: list[Piece], sq: int, rays: list[list[int]]) -> list[Move]:
   white = squares[sq].isupper()
-  return [Move(sq, t) for t in range(64)
-          if t != sq and (squares[t] is None or _is_enemy(squares[t], white))]
+  moves: list[Move] = []
+  for ray in rays:
+    for t in ray:
+      p = squares[t]
+      if p is None:
+        moves.append(Move(sq, t))
+      else:
+        if is_white(p) != white:
+          moves.append(Move(sq, t))
+        break
+  return moves
 
 def pseudo_legal_moves(board: Board) -> list[Move]:
   """Moves for the side to move, ignoring whether the own king is left in check."""
@@ -95,8 +126,13 @@ def pseudo_legal_moves(board: Board) -> list[Move]:
       moves.extend(_jump_moves(squares, sq, KNIGHT_TARGETS[sq]))
     elif piece.upper() == "K":
       moves.extend(_jump_moves(squares, sq, KING_TARGETS[sq]))
-    else:
-      moves.extend(free_moves(board, sq))
+    elif piece.upper() == "B":
+      moves.extend(_slide_moves(squares, sq, BISHOP_RAYS[sq]))
+    elif piece.upper() == "R":
+      moves.extend(_slide_moves(squares, sq, ROOK_RAYS[sq]))
+    elif piece.upper() == "Q":
+      moves.extend(_slide_moves(squares, sq, QUEEN_RAYS[sq]))
+
   return moves
 
 def legal_moves(board: Board) -> list[Move]:
