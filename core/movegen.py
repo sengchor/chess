@@ -64,6 +64,64 @@ def _is_enemy(piece: Piece, white: bool) -> bool:
 def _is_friend(piece: Piece, white: bool) -> bool:
   return piece is not None and is_white(piece) == white
 
+def king_square(squares: list[Piece], white: bool) -> int | None:
+  try:
+    return squares.index("K" if white else "k")
+  except ValueError:
+    return None
+
+# Attacks
+def is_attacked(squares: list[Piece], sq: int, by_white: bool) -> bool:
+  """Is `sq` attacked by any piece of the given color?"""
+  pawn, knight, bishop, rook, queen, king = ("PNBRQK" if by_white else "pnbrqk")
+
+  # pawn attack
+  dr = -1 if by_white else 1
+  for df in (-1, 1):
+    t = _offset(sq, df, dr)
+    if t is not None and squares[t] == pawn:
+      return True
+
+  for t in KNIGHT_TARGETS[sq]:
+    if squares[t] == knight:
+      return True
+
+  for t in KING_TARGETS[sq]:
+    if squares[t] == king:
+      return True
+
+  for ray in ROOK_RAYS[sq]:
+    for t in ray:
+      p = squares[t]
+      if p is not None:
+        if p == rook or p == queen:
+          return True
+        break
+
+  for ray in BISHOP_RAYS[sq]:
+    for t in ray:
+      p = squares[t]
+      if p is not None:
+        if p == bishop or p == queen:
+          return True
+        break
+
+  return False
+
+def in_check(squares: list[Piece], white: bool) -> bool:
+  k = king_square(squares, white)
+  return k is not None and is_attacked(squares, k, not white)
+
+# Making a move on a square list
+def squares_after(squares: list[Piece], move: Move) -> list[Piece]:
+  """Simulate a chess move without modifying the original board."""
+  new = squares.copy()
+  piece = new[move.from_sq]
+  new[move.from_sq] = None
+
+  new[move.to_sq] = piece
+  return new
+
 # Move generation
 def _pawn_moves(board: Board, sq: int) -> list[Move]:
   """One step forward, two from the start rank, diagonal captures."""
@@ -136,4 +194,9 @@ def pseudo_legal_moves(board: Board) -> list[Move]:
   return moves
 
 def legal_moves(board: Board) -> list[Move]:
-  return pseudo_legal_moves(board)
+  """Pseudo-legal moves that don't leave the mover's own king in check."""
+  white = board.turn == "w"
+  return [
+    m for m in pseudo_legal_moves(board)
+    if not in_check(squares_after(board.squares, m), white)
+  ]

@@ -63,6 +63,12 @@ class Board:
     """Legal moves of the piece on `sq`"""
     return [m for m in movegen.legal_moves(self) if m.from_sq == sq]
 
+  def in_check(self) -> bool:
+    return movegen.in_check(self.squares, self.turn == "w")
+
+  def king_square(self) -> int | None:
+    return movegen.king_square(self.squares, self.turn == "w")
+
   def apply_move(self, from_sq: int, to_sq: int) -> bool:
     """The single entry point for moves."""
     move = Move(from_sq, to_sq)

@@ -26,6 +26,7 @@ class Renderer:
     self.light_square_overlay = self._overlay(C.HIGHLIGHT_LIGHT)
     self.dark_square_overlay = self._overlay(C.HIGHLIGHT_DARK)
     self.drop_target_overlay = self._overlay(C.HIGHLIGHT_DROP_TARGET, C.DROP_TARGET_WIDTH)
+    self.check_flash_overlay = self._overlay(C.CHECK_FLASH_COLOR)
 
     self.move_dot = self._circle(C.HINT_DOT_RADIUS)
     self.capture_ring = self._circle(C.SQUARE_SIZE // 2, C.HINT_RING_WIDTH)
@@ -34,6 +35,7 @@ class Renderer:
     self.screen.fill(C.BACKGROUND)
     self._draw_squares()
     self._draw_highlights(board, ui)
+    self._draw_check_flash(ui)
     self._draw_pieces(board, skip=ui.drag_square)
     self._draw_move_hints(board, ui)
     self._draw_panel(fps)
@@ -136,3 +138,8 @@ class Renderer:
     for move in board.legal_moves_from(ui.selected):
       hint = self.capture_ring if board.squares[move.to_sq] is not None else self.move_dot
       self.screen.blit(hint, square_to_rect(move.to_sq))
+
+  def _draw_check_flash(self, ui: InputHandler) -> None:
+    sq = ui.flashing_square()
+    if sq is not None:
+      self.screen.blit(self.check_flash_overlay, square_to_rect(sq))

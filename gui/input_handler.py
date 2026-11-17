@@ -2,6 +2,7 @@ import pygame
 
 from core.board import Board
 from gui.coords import pixel_to_square, square_to_rect
+from gui import constants as C
 
 def same_color(a: str, b: str) -> bool:
   return a.isupper() == b.isupper()
@@ -15,6 +16,8 @@ class InputHandler:
     self.drag_pos: tuple[int, int] = (0, 0)
     self.drag_offset: tuple[int, int] = (0, 0)
     self._was_selected = False
+    self.flash_square: int | None = None
+    self.flash_start = 0
 
   def handle(self, event: pygame.event.Event) -> None:
     if event.type == pygame.MOUSEBUTTONDOWN:
@@ -43,7 +46,7 @@ class InputHandler:
     if self.selected is not None and sq != self.selected:
       selected_piece = self.board.squares[self.selected]
       if target_piece is None or not same_color(target_piece, selected_piece):
-        self.board.apply_move(self.selected, sq)
+        self._try_move(self.selected, sq)
         self.selected = None
         return
 
@@ -84,7 +87,7 @@ class InputHandler:
     if target is not None and same_color(target, self.board.squares[from_sq]):
       return
 
-    self.board.apply_move(from_sq, sq)
+    self._try_move(from_sq, sq)
     self.selected = None
 
   def _cancel(self) -> None:
@@ -93,3 +96,23 @@ class InputHandler:
 
   def drag_center(self) -> tuple[int, int]:
     return (self.drag_pos[0] - self.drag_offset[0], self.drag_pos[1] - self.drag_offset[1])
+
+  def _try_move(self, from_sq: int, to_sq: int) -> bool:
+    """Ask the board to make a move. If it's illegal while in check, flash the king."""
+    if self.board.apply_move(from_sq, to_sq):
+      self.flash_square = None
+      return True
+    if self.board.in_check():
+      self.flash_square = self.board.king_square()
+      self.flash_start = pygame.time.get_ticks()
+    return False
+
+  def flashing_square(self) -> int | None:
+    if self.flash_square is None:
+      return None
+    elapsed = pygame.time.get_ticks() - self.flash_start
+    if elapsed >= C.CHECK_FLASH_MS:
+      self.flash_square = None
+      return None
+    phase = elapsed * C.CHECK_FLASH_BLINKS * 2 // C.CHECK_FLASH_MS
+    return self.flash_square if phase % 2 == 0 else None
