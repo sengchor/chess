@@ -31,6 +31,9 @@ class Renderer:
     self.move_dot = self._circle(C.HINT_DOT_RADIUS)
     self.capture_ring = self._circle(C.SQUARE_SIZE // 2, C.HINT_RING_WIDTH)
 
+    self.promotion_dim = pygame.Surface((C.BOARD_SIZE, C.BOARD_SIZE), pygame.SRCALPHA)
+    self.promotion_dim.fill(C.PROMO_DIM_COLOR)
+
   def draw(self, board: Board, ui: InputHandler, fps: float) -> None:
     self.screen.fill(C.BACKGROUND)
     self._draw_squares()
@@ -38,6 +41,7 @@ class Renderer:
     self._draw_check_flash(ui)
     self._draw_pieces(board, skip=ui.drag_square)
     self._draw_move_hints(board, ui)
+    self._draw_promotion_picker(ui)
     self._draw_panel(fps)
     self._draw_dragged_piece(board, ui)
 
@@ -86,7 +90,9 @@ class Renderer:
       pygame.draw.rect(self.screen, color, square_to_rect(sq))
 
   def _draw_highlights(self, board: Board, ui: InputHandler) -> None:
-    squares = set(board.last_move or ())
+    squares: set[int] = set()
+    if board.last_move is not None:
+      squares.update((board.last_move.from_sq, board.last_move.to_sq))
     if ui.selected is not None:
       squares.add(ui.selected)
     for sq in squares:
@@ -135,9 +141,29 @@ class Renderer:
 
     if piece is None:
       return
-    for move in board.legal_moves_from(ui.selected):
-      hint = self.capture_ring if board.squares[move.to_sq] is not None else self.move_dot
-      self.screen.blit(hint, square_to_rect(move.to_sq))
+
+    targets = {move.to_sq for move in board.legal_moves_from(ui.selected)}
+    for to_sq in targets:
+      hint = self.capture_ring if board.squares[to_sq] is not None else self.move_dot
+      self.screen.blit(hint, square_to_rect(to_sq))
+
+  def _draw_promotion_picker(self, ui: InputHandler) -> None:
+    """Dim the board and show a column of promotion pieces over the target file."""
+    choices = ui.promotion_choices()
+    if not choices:
+      return
+    self.screen.blit(self.promotion_dim, self.board_rect.topleft)
+
+    column = square_to_rect(choices[0][0]).union(square_to_rect(choices[-1][0]))
+    pygame.draw.rect(self.screen, C.PROMO_BG, column, border_radius=C.PROMO_RADIUS)
+
+    mouse = pygame.mouse.get_pos()
+    for sq, piece in choices:
+      rect = square_to_rect(sq)
+      if rect.collidepoint(mouse):
+        pygame.draw.rect(self.screen, C.PROMO_HOVER_BG, rect, border_radius=C.PROMO_RADIUS)
+      img = self.piece_images[piece]
+      self.screen.blit(img, img.get_rect(center=rect.center))
 
   def _draw_check_flash(self, ui: InputHandler) -> None:
     sq = ui.flashing_square()

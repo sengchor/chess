@@ -63,21 +63,29 @@ class Board:
     """Legal moves of the piece on `sq`"""
     return [m for m in movegen.legal_moves(self) if m.from_sq == sq]
 
+  def is_promotion(self, from_sq: int, to_sq: int) -> bool:
+    return any(
+      m.to_sq == to_sq and m.promotion is not None
+      for m in self.legal_moves_from(from_sq)
+    )
+
   def in_check(self) -> bool:
     return movegen.in_check(self.squares, self.turn == "w")
 
   def king_square(self) -> int | None:
     return movegen.king_square(self.squares, self.turn == "w")
 
-  def apply_move(self, from_sq: int, to_sq: int) -> bool:
+  def apply_move(self, from_sq: int, to_sq: int, promotion: str | None = None) -> bool:
     """The single entry point for moves."""
-    move = Move(from_sq, to_sq)
-    if move not in movegen.legal_moves(self):
+    promotion = (promotion or "q").lower()
+    for move in movegen.legal_moves(self):
+      if move.from_sq == from_sq and move.to_sq == to_sq and move.promotion in (None, promotion):
+        break
+    else:
       return False
 
     self.history.append((self.squares.copy(), self.turn, self.last_move))
-    self.squares[to_sq] = self.squares[from_sq]
-    self.squares[from_sq] = None
+    self.squares = movegen.squares_after(self.squares, move)
     self.last_move = move
     self.turn = "b" if self.turn == "w" else "w"
     return True

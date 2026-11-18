@@ -6,10 +6,12 @@ if TYPE_CHECKING:
   from core.board import Board
 
 Piece = str | None
+PROMOTIONS = "qrbn"
 
 class Move(NamedTuple):
   from_sq: int
   to_sq: int
+  promotion: str | None = None
 
 # Precomputed tables
 def _offset(sq: int, df: int, dr: int) -> int | None:
@@ -119,6 +121,9 @@ def squares_after(squares: list[Piece], move: Move) -> list[Piece]:
   piece = new[move.from_sq]
   new[move.from_sq] = None
 
+  if move.promotion:
+    piece = move.promotion.upper() if is_white(piece) else move.promotion.lower()
+
   new[move.to_sq] = piece
   return new
 
@@ -129,14 +134,18 @@ def _pawn_moves(board: Board, sq: int) -> list[Move]:
   white = squares[sq].isupper()
   dr = 1 if white else -1
   start_rank = 1 if white else 6
+  promo_rank = 7 if white else 0
   moves: list[Move] = []
 
-  one = _offset(sq, 0, dr)
-  if one is None:
-    return moves
+  def add(to: int) -> None:
+    if to // 8 == promo_rank:
+      moves.extend(Move(sq, to, p) for p in PROMOTIONS)
+    else:
+      moves.append(Move(sq, to))
 
-  if squares[one] is None:
-    moves.append(Move(sq, one))
+  one = _offset(sq, 0, dr)
+  if one is not None and squares[one] is None:
+    add(one)
     two = _offset(sq, 0, 2 * dr)
     if sq // 8 == start_rank and squares[two] is None:
       moves.append(Move(sq, two))
@@ -144,7 +153,7 @@ def _pawn_moves(board: Board, sq: int) -> list[Move]:
   for df in (-1, 1):
     t = _offset(sq, df, dr)
     if t is not None and _is_enemy(squares[t], white):
-      moves.append(Move(sq, t))
+      add(t)
   return moves
 
 def _jump_moves(squares: list[Piece], sq: int, targets: list[int]) -> list[Move]:
