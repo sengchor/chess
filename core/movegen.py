@@ -115,11 +115,16 @@ def in_check(squares: list[Piece], white: bool) -> bool:
   return k is not None and is_attacked(squares, k, not white)
 
 # Making a move on a square list
-def squares_after(squares: list[Piece], move: Move) -> list[Piece]:
+def squares_after(squares: list[Piece], move: Move, ep_square: int | None) -> list[Piece]:
   """Simulate a chess move without modifying the original board."""
   new = squares.copy()
   piece = new[move.from_sq]
   new[move.from_sq] = None
+  white = is_white(piece)
+
+  # En passant: allows a pawn to capture another pawn while moving diagonally to an empty square.
+  if piece in ("P", "p") and move.to_sq == ep_square and new[move.to_sq] is None:
+    new[move.to_sq - 8 if white else move.to_sq + 8] = None
 
   if move.promotion:
     piece = move.promotion.upper() if is_white(piece) else move.promotion.lower()
@@ -152,8 +157,12 @@ def _pawn_moves(board: Board, sq: int) -> list[Move]:
 
   for df in (-1, 1):
     t = _offset(sq, df, dr)
-    if t is not None and _is_enemy(squares[t], white):
+    if t is None:
+      continue
+    if _is_enemy(squares[t], white):
       add(t)
+    elif t == board.ep_square:
+      moves.append(Move(sq, t))
   return moves
 
 def _jump_moves(squares: list[Piece], sq: int, targets: list[int]) -> list[Move]:
@@ -207,5 +216,5 @@ def legal_moves(board: Board) -> list[Move]:
   white = board.turn == "w"
   return [
     m for m in pseudo_legal_moves(board)
-    if not in_check(squares_after(board.squares, m), white)
+    if not in_check(squares_after(board.squares, m, board.ep_square), white)
   ]

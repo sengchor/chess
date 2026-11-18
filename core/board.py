@@ -8,6 +8,7 @@ class Board:
   def __init__(self) -> None:
     self.squares: list[Piece] = [None] * 64
     self.turn = "w"
+    self.ep_square: int | None = None
     self.history: list[tuple] = []
     self.last_move: Move | None = None
     self.load_placement(START_PLACEMENT)
@@ -84,8 +85,16 @@ class Board:
     else:
       return False
 
-    self.history.append((self.squares.copy(), self.turn, self.last_move))
-    self.squares = movegen.squares_after(self.squares, move)
+    piece = self.squares[from_sq]
+    self.history.append((self.squares.copy(), self.turn, self.ep_square, self.last_move))
+    self.squares = movegen.squares_after(self.squares, move, self.ep_square)
+
+     # A pawn that just moved two squares can be captured en passant on the square
+    if piece in ("P", "p") and abs(to_sq - from_sq) == 16:
+      self.ep_square = (from_sq + to_sq) // 2
+    else:
+      self.ep_square = None
+
     self.last_move = move
     self.turn = "b" if self.turn == "w" else "w"
     return True
