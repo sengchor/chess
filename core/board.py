@@ -44,6 +44,7 @@ class Board:
     self.squares = squares
     self.history.clear()
     self.last_move = None
+    self.ep_square = None
 
   def to_placement(self) -> str:
     """Export the board as a FEN placement string."""
@@ -79,6 +80,20 @@ class Board:
 
   def king_square(self) -> int | None:
     return movegen.king_square(self.squares, self.turn == "w")
+
+  def is_checkmate(self) -> bool:
+    return self.in_check() and not movegen.legal_moves(self)
+
+  def is_stalemate(self) -> bool:
+    return not self.in_check() and not movegen.legal_moves(self)
+
+  def winner(self) -> str | None:
+    if self.is_checkmate():
+      return "b" if self.turn == "w" else "w"
+    return None
+
+  def is_game_over(self) -> bool:
+    return not movegen.legal_moves(self)
 
   def apply_move(self, from_sq: int, to_sq: int, promotion: str | None = None) -> bool:
     """The single entry point for moves."""

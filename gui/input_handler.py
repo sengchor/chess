@@ -40,6 +40,10 @@ class InputHandler:
       self._cancel()
 
   def _on_press(self, pos: tuple[int, int]) -> None:
+    if self.board.is_game_over():
+      self._cancel()
+      return
+
     sq = pixel_to_square(pos)
 
     if self.promotion is not None:

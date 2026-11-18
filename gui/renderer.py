@@ -4,6 +4,7 @@ from core.board import Board
 from gui import constants as C
 from gui.coords import pixel_to_square, square_to_rect
 from gui.input_handler import InputHandler
+from core import movegen
 
 PIECE_FILES = {
   "P": "PawnW",   "p": "PawnB",
@@ -34,12 +35,17 @@ class Renderer:
     self.promotion_dim = pygame.Surface((C.BOARD_SIZE, C.BOARD_SIZE), pygame.SRCALPHA)
     self.promotion_dim.fill(C.PROMO_DIM_COLOR)
 
+    self.win_badge = self._badge(C.WIN_BADGE_COLOR)
+    self.lose_badge = self._badge(C.LOSE_BADGE_COLOR)
+    self.draw_badge = self._badge(C.DRAW_BADGE_COLOR)
+
   def draw(self, board: Board, ui: InputHandler, fps: float) -> None:
     self.screen.fill(C.BACKGROUND)
     self._draw_squares()
     self._draw_highlights(board, ui)
     self._draw_check_flash(ui)
     self._draw_pieces(board, skip=ui.drag_square)
+    self._draw_result_badges(board)
     self._draw_move_hints(board, ui)
     self._draw_promotion_picker(ui)
     self._draw_panel(fps)
@@ -169,3 +175,28 @@ class Renderer:
     sq = ui.flashing_square()
     if sq is not None:
       self.screen.blit(self.check_flash_overlay, square_to_rect(sq))
+
+  @staticmethod
+  def _badge(color: tuple[int, int, int]) -> pygame.Surface:
+    r, b = C.BADGE_RADIUS, C.BADGE_BORDER
+    size = 2 * (r + b)
+    surf = pygame.Surface((size, size), pygame.SRCALPHA)
+    center = (size // 2, size // 2)
+    pygame.draw.circle(surf, C.BADGE_BORDER_COLOR, center, r + b)
+    pygame.draw.circle(surf, color, center, r)
+    return surf
+
+  def _draw_result_badges(self, board: Board) -> None:
+    if board.is_stalemate():
+      badges = ((self.draw_badge, True), (self.draw_badge, False))
+    else:
+      winner = board.winner()
+      if winner is None:
+        return
+      badges = ((self.win_badge, winner == "w"), (self.lose_badge, winner != "w"))
+
+    for badge, white in badges:
+      k = movegen.king_square(board.squares, white)
+      if k is not None:
+        rect = square_to_rect(k)
+        self.screen.blit(badge, badge.get_rect(topright=(rect.right, rect.top)))
