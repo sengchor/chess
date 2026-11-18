@@ -122,9 +122,18 @@ def squares_after(squares: list[Piece], move: Move, ep_square: int | None) -> li
   new[move.from_sq] = None
   white = is_white(piece)
 
-  # En passant: allows a pawn to capture another pawn while moving diagonally to an empty square.
+  # En passant
   if piece in ("P", "p") and move.to_sq == ep_square and new[move.to_sq] is None:
     new[move.to_sq - 8 if white else move.to_sq + 8] = None
+
+  # Castling
+  if piece in ("K", "k") and abs(move.to_sq - move.from_sq) == 2:
+    if move.to_sq > move.from_sq: # kingside
+      rook_from, rook_to = move.from_sq + 3, move.from_sq + 1
+    else:                         # queenside
+      rook_from, rook_to = move.from_sq - 4, move.from_sq - 1
+    new[rook_to] = new[rook_from]
+    new[rook_from] = None
 
   if move.promotion:
     piece = move.promotion.upper() if is_white(piece) else move.promotion.lower()
@@ -187,6 +196,30 @@ def _slide_moves(squares: list[Piece], sq: int, rays: list[list[int]]) -> list[M
         break
   return moves
 
+def _castling_moves(board: Board, white: bool) -> list[Move]:
+  squares = board.squares
+  moves: list[Move] = []
+  base = 0 if white else 56
+  king, rook = ("K", "R") if white else ("k", "r")
+  kingside, queenside = ("K", "Q") if white else ("k", "q")
+  enemy = not white
+  e, f, g, d, c, b = base + 4, base + 5, base + 6, base + 3, base + 2, base + 1
+
+  if squares[e] != king or is_attacked(squares, e, enemy):
+    return moves
+
+  if (kingside in board.castling and squares[base + 7] == rook
+      and squares[f] is None and squares[g] is None
+      and not is_attacked(squares, f, enemy) and not is_attacked(squares, g, enemy)):
+    moves.append(Move(e, g))
+
+  if (queenside in board.castling and squares[base] == rook
+      and squares[d] is None and squares[c] is None and squares[b] is None
+      and not is_attacked(squares, d, enemy) and not is_attacked(squares, c, enemy)):
+    moves.append(Move(e, c))
+
+  return moves
+
 def pseudo_legal_moves(board: Board) -> list[Move]:
   """Moves for the side to move, ignoring whether the own king is left in check."""
   white = board.turn == "w"
@@ -209,6 +242,7 @@ def pseudo_legal_moves(board: Board) -> list[Move]:
     elif piece.upper() == "Q":
       moves.extend(_slide_moves(squares, sq, QUEEN_RAYS[sq]))
 
+  moves.extend(_castling_moves(board, white))
   return moves
 
 def legal_moves(board: Board) -> list[Move]:

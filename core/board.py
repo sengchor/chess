@@ -4,10 +4,14 @@ from core.movegen import Move, Piece
 START_PLACEMENT = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
 PIECE_LETTERS = set("PNBRQKpnbrqk")
 
+# Moving from or capturing on these squares removes these castling rights.
+CASTLING_SQUARES = {4: "KQ", 60: "kq", 0: "Q", 7: "K", 56: "q", 63: "k"}
+
 class Board:
   def __init__(self) -> None:
     self.squares: list[Piece] = [None] * 64
     self.turn = "w"
+    self.castling = "KQkq"
     self.ep_square: int | None = None
     self.history: list[tuple] = []
     self.last_move: Move | None = None
@@ -86,14 +90,19 @@ class Board:
       return False
 
     piece = self.squares[from_sq]
-    self.history.append((self.squares.copy(), self.turn, self.ep_square, self.last_move))
+    self.history.append((self.squares.copy(), self.turn, self.castling, self.ep_square, self.last_move))
     self.squares = movegen.squares_after(self.squares, move, self.ep_square)
 
-     # A pawn that just moved two squares can be captured en passant on the square
+    # A pawn that just moved two squares can be captured en passant on the square
     if piece in ("P", "p") and abs(to_sq - from_sq) == 16:
       self.ep_square = (from_sq + to_sq) // 2
     else:
       self.ep_square = None
+
+    # Update castling rights when the King or a Rook moves, or when a Rook is captured
+    for sq in (from_sq, to_sq):
+      for right in CASTLING_SQUARES.get(sq, ""):
+        self.castling = self.castling.replace(right, "")
 
     self.last_move = move
     self.turn = "b" if self.turn == "w" else "w"
