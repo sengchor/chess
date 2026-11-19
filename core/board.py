@@ -1,3 +1,5 @@
+from typing import NamedTuple
+
 from core import movegen
 from core.movegen import Move, Piece
 
@@ -6,6 +8,18 @@ PIECE_LETTERS = set("PNBRQKpnbrqk")
 
 # Moving from or capturing on these squares removes these castling rights.
 CASTLING_SQUARES = {4: "KQ", 60: "kq", 0: "Q", 7: "K", 56: "q", 63: "k"}
+
+OUTCOME_TEXT = {
+  "checkmate": "Checkmate",
+  "stalemate": "Stalemate",
+  "insufficient_material": "Insufficient material",
+  "fifty_move": "50-move rule",
+  "threefold": "Threefold repetition"
+}
+
+class Outcome(NamedTuple):
+  result: str # "1-0" (White wins), "0-1" (Black wins) or "1/2-1/2" (draw)
+  reason: str
 
 class Board:
   def __init__(self) -> None:
@@ -81,6 +95,18 @@ class Board:
   def king_square(self) -> int | None:
     return movegen.king_square(self.squares, self.turn == "w")
 
+  # Game over
+  def outcome(self) -> Outcome | None:
+    if not movegen.legal_moves(self):
+      if self.in_check():
+        return Outcome("0-1" if self.turn == "w" else "1-0", "checkmate")
+      return Outcome("1/2-1/2", "stalemate")
+    if self.is_insufficient_material():
+      return Outcome("1/2-1/2", "insufficient_material")
+
+  def is_game_over(self) -> bool:
+    return not movegen.legal_moves(self)
+
   def is_checkmate(self) -> bool:
     return self.in_check() and not movegen.legal_moves(self)
 
@@ -92,8 +118,20 @@ class Board:
       return "b" if self.turn == "w" else "w"
     return None
 
-  def is_game_over(self) -> bool:
-    return not movegen.legal_moves(self)
+  def is_insufficient_material(self) -> bool:
+    minors = []
+    for sq, p in enumerate(self.squares):
+      if p is None or p in ("K", "k"):
+        continue
+      if p in ("P", "p", "R", "r", "Q", "q"):
+        return False
+      minors.append((p, sq))
+    if len(minors) <= 1:
+      return True
+    if all(p in ("B", "b") for p, _ in minors):
+      square_colors = {(sq % 8 + sq // 8) % 2 for _, sq in minors}
+      return len(square_colors) == 1
+    return False
 
   def apply_move(self, from_sq: int, to_sq: int, promotion: str | None = None) -> bool:
     """The single entry point for moves."""

@@ -1,6 +1,6 @@
 import pygame
 
-from core.board import Board
+from core.board import OUTCOME_TEXT, Board
 from gui import constants as C
 from gui.coords import pixel_to_square, square_to_rect
 from gui.input_handler import InputHandler
@@ -48,7 +48,7 @@ class Renderer:
     self._draw_result_badges(board)
     self._draw_move_hints(board, ui)
     self._draw_promotion_picker(ui)
-    self._draw_panel(fps)
+    self._draw_panel(board, fps)
     self._draw_dragged_piece(board, ui)
 
   @staticmethod
@@ -130,9 +130,9 @@ class Renderer:
     self.screen.blit(img, img.get_rect(center=ui.drag_center()))
 
   # Panel
-  def _draw_panel(self, fps: float) -> None:
+  def _draw_panel(self, board: Board, fps: float) -> None:
     pygame.draw.rect(self.screen, C.PANEL_BG, self.panel_rect)
-    lines = [C.WINDOW_TITLE, f"FPS: {fps:.0f}"]
+    lines = [C.WINDOW_TITLE, *self._status_lines(board), f"FPS: {fps:.0f}"]
     x, y = self.panel_rect.x + 16, 16
     for line in lines:
       surf = self.panel_font.render(line, True, C.PANEL_TEXT)
@@ -187,16 +187,28 @@ class Renderer:
     return surf
 
   def _draw_result_badges(self, board: Board) -> None:
-    if board.is_stalemate():
+    outcome = board.outcome()
+    if outcome is None:
+      return
+    if outcome.result == "1/2-1/2":
       badges = ((self.draw_badge, True), (self.draw_badge, False))
     else:
-      winner = board.winner()
-      if winner is None:
-        return
-      badges = ((self.win_badge, winner == "w"), (self.lose_badge, winner != "w"))
+      white_won = outcome.result == "1-0"
+      badges = (self.draw_badge, white_won), (self.lose_badge, not white_won)
 
     for badge, white in badges:
       k = movegen.king_square(board.squares, white)
       if k is not None:
         rect = square_to_rect(k)
         self.screen.blit(badge, badge.get_rect(topright=(rect.right, rect.top)))
+
+  @staticmethod
+  def _status_lines(board: Board) -> list[str]:
+    outcome = board.outcome()
+    if outcome is None:
+      side = "White" if board.turn == "w" else "Black"
+      return[f"{side} to move" + (" - check" if board.in_check() else "")]
+    if outcome.result == "1/2-1/2":
+      return [f"Draw: {OUTCOME_TEXT[outcome.reason]}", outcome.result]
+    winner = "White" if outcome.result == "1-0" else "Black"
+    return [f"Checkmate - {winner} wins", outcome.result]
