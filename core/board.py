@@ -5,6 +5,7 @@ from core.movegen import Move, Piece
 
 START_PLACEMENT = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
 PIECE_LETTERS = set("PNBRQKpnbrqk")
+FILES = "abcdefgh"
 
 # Moving from or capturing on these squares removes these castling rights.
 CASTLING_SQUARES = {4: "KQ", 60: "kq", 0: "Q", 7: "K", 56: "q", 63: "k"}
@@ -28,6 +29,7 @@ class Board:
     self.castling = "KQkq"
     self.ep_square: int | None = None
     self.halfmove = 0
+    self.position_keys: list[str] = []
     self.history: list[tuple] = []
     self.last_move: Move | None = None
     self.load_placement(START_PLACEMENT)
@@ -61,6 +63,7 @@ class Board:
     self.last_move = None
     self.ep_square = None
     self.halfmove = 0
+    self.position_keys = [self._position_key()]
 
   def to_placement(self) -> str:
     """Export the board as a FEN placement string."""
@@ -107,6 +110,8 @@ class Board:
       return Outcome("1/2-1/2", "insufficient_material")
     if self.halfmove >= 100:
       return Outcome("1/2-1/2", "fifty_move")
+    if self.position_keys.count(self.position_keys[-1]) >= 3:
+      return Outcome("1/2-1/2", "threefold")
     return None
 
   def is_game_over(self) -> bool:
@@ -168,4 +173,15 @@ class Board:
 
     self.last_move = move
     self.turn = "b" if self.turn == "w" else "w"
+    self.position_keys.append(self._position_key())
     return True
+
+  def _position_key(self) -> str:
+    """Creates a unique string representing the current chess position."""
+    ep = "-"
+    if self.ep_square is not None:
+      for m in movegen.legal_moves(self):
+        if m.to_sq == self.ep_square and self.squares[m.from_sq] in ("P", "p"):
+          ep = FILES[self.ep_square % 8] + str(self.ep_square // 8 + 1)
+          break
+    return f"{self.to_placement()} {self.turn} {self.castling or '-'} {ep}"
