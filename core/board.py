@@ -27,6 +27,7 @@ class Board:
     self.turn = "w"
     self.castling = "KQkq"
     self.ep_square: int | None = None
+    self.halfmove = 0
     self.history: list[tuple] = []
     self.last_move: Move | None = None
     self.load_placement(START_PLACEMENT)
@@ -59,6 +60,7 @@ class Board:
     self.history.clear()
     self.last_move = None
     self.ep_square = None
+    self.halfmove = 0
 
   def to_placement(self) -> str:
     """Export the board as a FEN placement string."""
@@ -103,9 +105,12 @@ class Board:
       return Outcome("1/2-1/2", "stalemate")
     if self.is_insufficient_material():
       return Outcome("1/2-1/2", "insufficient_material")
+    if self.halfmove >= 100:
+      return Outcome("1/2-1/2", "fifty_move")
+    return None
 
   def is_game_over(self) -> bool:
-    return not movegen.legal_moves(self)
+    return self.outcome() is not None
 
   def is_checkmate(self) -> bool:
     return self.in_check() and not movegen.legal_moves(self)
@@ -143,7 +148,8 @@ class Board:
       return False
 
     piece = self.squares[from_sq]
-    self.history.append((self.squares.copy(), self.turn, self.castling, self.ep_square, self.last_move))
+    captured = self.squares[to_sq]
+    self.history.append((self.squares.copy(), self.turn, self.castling, self.ep_square, self.halfmove, self.last_move))
     self.squares = movegen.squares_after(self.squares, move, self.ep_square)
 
     # A pawn that just moved two squares can be captured en passant on the square
@@ -156,6 +162,9 @@ class Board:
     for sq in (from_sq, to_sq):
       for right in CASTLING_SQUARES.get(sq, ""):
         self.castling = self.castling.replace(right, "")
+
+    # 50-move rule clock: 50-move rule clock: reset by any pawn move or capture
+    self.halfmove = 0 if piece in ("P", "p") or captured is not None else self.halfmove + 1
 
     self.last_move = move
     self.turn = "b" if self.turn == "w" else "w"
